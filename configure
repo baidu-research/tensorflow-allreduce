@@ -63,6 +63,7 @@ if is_windows; then
   TF_NEED_HDFS=0
   TF_NEED_JEMALLOC=0
   TF_NEED_OPENCL=0
+  TF_NEED_MPI=0
 fi
 
 while [ "$TF_NEED_JEMALLOC" == "" ]; do
@@ -110,6 +111,68 @@ if [ "$TF_NEED_GCP" == "1" ]; then
 else
   # Update Bazel build configuration.
   sed -i -e "s/WITH_GCP_SUPPORT = True/WITH_GCP_SUPPORT = False/" tensorflow/core/platform/default/build_config.bzl
+fi
+
+while [ "$TF_NEED_MPI" == "" ]; do
+  read -p "Do you wish to build TensorFlow with "\
+"Message Passing Interface (MPI) support? [y/N] " INPUT
+  case $INPUT in
+    [Yy]* ) echo "MPI support will be enabled for "\
+"TensorFlow"; TF_NEED_MPI=1;;
+    [Nn]* ) echo "No MPI support will be enabled for "\
+"TensorFlow"; TF_NEED_MPI=0;;
+    "" ) echo "No Hadoop File System support will be enabled for "\
+"TensorFlow"; TF_NEED_MPI=0;;
+    * ) echo "Invalid selection: " $INPUT;;
+  esac
+done
+
+while true; do
+  if [ "$TF_NEED_MPI" == "0" ]; then
+    break;
+  fi
+
+  fromuser=""
+  if [ -z "$MPI_PATH" ]; then
+    default_mpi_path=$(dirname $(dirname $(which mpirun)) || dirname $(dirname $(which mpiexec))  || true)
+    read -p "Please specify the location of MPI. [Default is $default_mpi_path]: " MPI_PATH
+    fromuser="1"
+    if [ -z "$MPI_PATH" ]; then
+      MPI_PATH=$default_mpi_path
+    fi
+  fi
+  if [ -e "$MPI_PATH/include" -a -e "$MPI_PATH/lib" ]; then
+    break
+  fi
+  echo "Invalid MPI path. ${MPI_PATH}/include or ${MPI_PATH}/lib cannot be found" 1>&2
+  if [ -z "$fromuser" ]; then
+    exit 1
+  fi
+  MPI_PATH=""
+  # Retry
+done
+
+if [ "$TF_NEED_MPI" == "1" ]; then
+  # Symlink necessary parts of MPI into the third party directory.
+  ln -sf "${MPI_PATH}/include/mpi.h" third_party/mpi/mpi.h
+
+  if [ -e "${MPI_PATH}/include/mpi_portable_platform.h" ]; then
+    ln -sf "${MPI_PATH}/include/mpi_portable_platform.h" third_party/mpi/mpi_portable_platform.h
+  fi
+
+  if [ -e "${MPI_PATH}/lib/libmpi.so" ]; then
+    ln -sf "${MPI_PATH}/lib/libmpi.so" third_party/mpi/libmpi.so
+  fi
+
+  if [ -e "${MPI_PATH}/lib/libmpi.dylib" ]; then
+    ln -sf "${MPI_PATH}/lib/libmpi.dylib" third_party/mpi/libmpi.dylib
+  fi
+
+  # Update Bazel build configuration.
+  sed -i -e "s/WITH_MPI_SUPPORT = False/WITH_MPI_SUPPORT = True/" tensorflow/contrib/BUILD
+else
+  # Update Bazel build configuration.
+  sed -i -e "s/WITH_MPI_SUPPORT = True/WITH_MPI_SUPPORT = False/" tensorflow/contrib/BUILD
 fi
 
 while [ "$TF_NEED_HDFS" == "" ]; do
