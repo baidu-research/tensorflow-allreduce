@@ -1,6 +1,9 @@
 # Description:
 #   contains parts of TensorFlow that are experimental or unstable and which are not supported.
 
+# The configure script may change this to True.
+WITH_MPI_SUPPORT = True
+
 licenses(["notice"])  # Apache 2.0
 
 exports_files(["LICENSE"])
@@ -59,7 +62,7 @@ py_library(
         "//tensorflow/contrib/tfprof",
         "//tensorflow/contrib/training:training_py",
         "//tensorflow/contrib/util:util_py",
-    ],
+    ] + ["//tensorflow/contrib/mpi:mpi_ops_py"] if WITH_MPI_SUPPORT else [],
 )
 
 cc_library(
