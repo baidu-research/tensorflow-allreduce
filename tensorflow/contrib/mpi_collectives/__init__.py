@@ -37,7 +37,7 @@ for detecting the running MPI configuration.
 Example:
 
 ```python
-from tensorflow.contrib import mpi
+from tensorflow.contrib import mpi_collectives as mpi
 
 # Use `mpi.Session` instead of `tf.Session`
 with mpi.Session() as session:
